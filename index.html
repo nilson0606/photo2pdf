@@ -29,6 +29,7 @@ button.ghost{background:transparent;border-color:transparent}
 .wrap{max-width:900px;margin:0 auto;padding:16px}
 header{display:flex;align-items:center;gap:12px;padding-top:calc(8px + env(safe-area-inset-top))}
 header h1{font-size:20px;margin:0;flex:1}
+header h1 .ver{font-size:12px;font-weight:500;color:var(--muted);vertical-align:middle;margin-left:4px}
 .status{font-size:13px;color:var(--muted)}
 .status.err{color:var(--danger)}
 .add{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
@@ -93,7 +94,7 @@ header h1{font-size:20px;margin:0;flex:1}
 <body>
 <div class="wrap">
   <header>
-    <h1>Photo2PDF</h1>
+    <h1>Photo2PDF <span class="ver" id="verTop"></span></h1>
     <span id="cvStatus" class="status">載入影像引擎中…</span>
   </header>
 
@@ -106,7 +107,7 @@ header h1{font-size:20px;margin:0;flex:1}
   <div id="grid" class="grid"></div>
   <div id="empty" class="empty">還沒有照片。照片只在你的裝置上處理，不會上傳。</div>
 </div>
-<p class="foot">開源（MIT）· 照片不離開你的裝置 · <a href="https://github.com/nilson0606/photo2pdf" id="repoLink" target="_blank" rel="noopener">GitHub</a></p>
+<p class="foot"><span id="verFoot"></span> · 開源（MIT）· 照片不離開你的裝置 · <a href="https://github.com/nilson0606/photo2pdf" id="repoLink" target="_blank" rel="noopener">GitHub</a></p>
 
 <div class="bar"><div class="in">
   <label>頁面
@@ -131,7 +132,8 @@ header h1{font-size:20px;margin:0;flex:1}
     </select>
   </label>
   <button id="clearAll" class="ghost small">清空</button>
-  <button id="make" class="primary go" disabled>產生 PDF</button>
+  <button id="makeImg" class="go" disabled>存成照片</button>
+  <button id="make" class="primary" disabled>產生 PDF</button>
 </div></div>
 
 <div id="editor">
@@ -159,7 +161,9 @@ header h1{font-size:20px;margin:0;flex:1}
 <div id="dlg"><div class="box">
   <h2 id="dlgTitle">產生 PDF</h2>
   <div class="meta" id="dlgMeta"></div>
+  <label class="meta" for="fname" id="fnameLabel">檔名</label>
   <input id="fname" type="text" spellcheck="false">
+  <div class="meta" id="dlgHint"></div>
   <div class="acts">
     <button id="dlgClose">關閉</button>
     <button id="dlgShare" style="display:none">分享</button>
@@ -174,6 +178,8 @@ header h1{font-size:20px;margin:0;flex:1}
  * Photo2PDF — 照片轉 PDF（自動 / 手動框圖 + 透視校正）
  * 全部在瀏覽器端處理。MIT License.
  * ========================================================= */
+
+const APP_VERSION = '1.2.0';   // 改版時更新，並在 README 的「版本紀錄」補一行
 
 const OPENCV_URLS = [
   'https://cdn.jsdelivr.net/npm/@techstark/opencv-js@4.10.0-release.1/dist/opencv.js',
@@ -594,7 +600,7 @@ function refreshUI() {
     grid.appendChild(card);
   });
   $('empty').style.display = pages.length ? 'none' : '';
-  $('make').disabled = !cv || !pages.length || pages.some((p) => p.busy);
+  $('make').disabled = $('makeImg').disabled = !cv || !pages.length || pages.some((p) => p.busy);
 }
 function move(i, d) { const j = i + d; if (j < 0 || j >= pages.length) return; [pages[i], pages[j]] = [pages[j], pages[i]]; refreshUI(); }
 async function rotate(p) { p.rot = (p.rot + 90) % 360; p.busy = true; refreshUI(); await makeThumb(p); p.busy = false; refreshUI(); }
@@ -731,17 +737,17 @@ $('edDone').onclick = async () => {
   for (const x of dirty) { try { await makeThumb(x); } catch (e) { console.error(e); } x.busy = false; refreshUI(); }
 };
 
-/* ---------------- 產生 PDF ---------------- */
-let lastPdf = null;
-function defaultName() {
+/* ---------------- 輸出：PDF 或照片 ---------------- */
+let out = null;   // { mode:'pdf'|'img', pdf:Blob, imgs:[Blob] }
+function stamp() {
   const d = new Date(), z = (n) => String(n).padStart(2, '0');
-  return `photo2pdf-${d.getFullYear()}${z(d.getMonth() + 1)}${z(d.getDate())}-${z(d.getHours())}${z(d.getMinutes())}.pdf`;
+  return `photo2pdf-${d.getFullYear()}${z(d.getMonth() + 1)}${z(d.getDate())}-${z(d.getHours())}${z(d.getMinutes())}`;
 }
-$('make').onclick = async () => {
-  if (!pages.length) return;
+/** 依目前設定把每一頁算成 JPEG（校正 → 濾鏡 → 旋轉） */
+async function renderAll(btn) {
   const Q = QUALITY[$('quality').value];
-  const btn = $('make'); btn.disabled = true;
-  const images = [];
+  const label = btn.textContent;
+  const res = [];
   try {
     for (let i = 0; i < pages.length; i++) {
       btn.textContent = `處理中 ${i + 1}/${pages.length}`;
@@ -752,34 +758,79 @@ $('make').onclick = async () => {
       freeImage(img);
       const c = renderPage(sc, p, Q.outMax);
       freeCanvas(sc);
-      const b = await canvasToBlob(c, Q.jpeg);
-      images.push({ bytes: new Uint8Array(await b.arrayBuffer()), w: c.width, h: c.height });
+      res.push({ blob: await canvasToBlob(c, Q.jpeg), w: c.width, h: c.height });
       freeCanvas(c);
     }
-    lastPdf = buildPdf(images, $('pageSize').value);
-    $('fname').value = defaultName();
-    $('dlgMeta').textContent = `${pages.length} 頁 · ${(lastPdf.size / 1048576).toFixed(1)} MB`;
-    const f = new File([lastPdf], 'x.pdf', { type: 'application/pdf' });
-    $('dlgShare').style.display = (navigator.canShare && navigator.canShare({ files: [f] })) ? '' : 'none';
+  } finally { btn.textContent = label; }
+  return res;
+}
+async function runOutput(mode) {
+  if (!pages.length) return;
+  const btn = mode === 'pdf' ? $('make') : $('makeImg');
+  $('make').disabled = $('makeImg').disabled = true;
+  try {
+    const shots = await renderAll(btn);
+    let size;
+    if (mode === 'pdf') {
+      const imgs = [];
+      for (const s of shots) imgs.push({ bytes: new Uint8Array(await s.blob.arrayBuffer()), w: s.w, h: s.h });
+      out = { mode, pdf: buildPdf(imgs, $('pageSize').value) };
+      size = out.pdf.size;
+      $('dlgTitle').textContent = 'PDF 已完成';
+      $('fnameLabel').textContent = '檔名';
+      $('fname').value = stamp() + '.pdf';
+      $('dlgMeta').textContent = `${pages.length} 頁 · ${(size / 1048576).toFixed(1)} MB`;
+    } else {
+      out = { mode, imgs: shots.map((s) => s.blob) };
+      size = out.imgs.reduce((t, b) => t + b.size, 0);
+      $('dlgTitle').textContent = '照片已完成';
+      $('fnameLabel').textContent = '檔名開頭（後面會自動加上 -01、-02…）';
+      $('fname').value = stamp();
+      $('dlgMeta').textContent = `${shots.length} 張 JPG · 共 ${(size / 1048576).toFixed(1)} MB`;
+    }
+    const files = outFiles();
+    const canShare = !!(navigator.canShare && navigator.canShare({ files }));
+    $('dlgShare').style.display = canShare ? '' : 'none';
+    $('dlgShare').textContent = mode === 'img' ? '分享／存到照片' : '分享';
+    $('dlgSave').textContent = mode === 'img' ? '下載全部' : '下載';
+    $('dlgHint').textContent = (mode === 'img' && canShare)
+      ? 'iPhone：按「分享／存到照片」，在選單中選「儲存 ' + shots.length + ' 張影像」就會存進「照片」App。' : '';
     $('dlg').classList.add('show');
   } catch (e) {
     console.error(e);
     toast('產生失敗：' + (e && e.message ? e.message : e), 4000);
   } finally {
-    btn.textContent = '產生 PDF';
     refreshUI();
   }
-};
-function pdfName() { let n = $('fname').value.trim() || defaultName(); if (!/\.pdf$/i.test(n)) n += '.pdf'; return n; }
-$('dlgSave').onclick = () => {
-  const url = URL.createObjectURL(lastPdf);
-  const a = document.createElement('a'); a.href = url; a.download = pdfName();
+}
+function outFiles() {
+  if (out.mode === 'pdf') {
+    let n = $('fname').value.trim() || stamp() + '.pdf';
+    if (!/\.pdf$/i.test(n)) n += '.pdf';
+    return [new File([out.pdf], n, { type: 'application/pdf' })];
+  }
+  const base = ($('fname').value.trim() || stamp()).replace(/\.(jpe?g|pdf)$/i, '');
+  const w = String(out.imgs.length).length < 2 ? 2 : String(out.imgs.length).length;
+  return out.imgs.map((b, i) => new File([b], `${base}-${String(i + 1).padStart(w, '0')}.jpg`, { type: 'image/jpeg' }));
+}
+function download(file) {
+  const url = URL.createObjectURL(file);
+  const a = document.createElement('a'); a.href = url; a.download = file.name;
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 60000);
+}
+$('make').onclick = () => runOutput('pdf');
+$('makeImg').onclick = () => runOutput('img');
+$('dlgSave').onclick = async () => {
+  const files = outFiles();
+  for (let i = 0; i < files.length; i++) {
+    download(files[i]);
+    if (i < files.length - 1) await sleep(400);   // 連續下載間隔，避免瀏覽器擋掉
+  }
 };
 $('dlgShare').onclick = async () => {
-  try { await navigator.share({ files: [new File([lastPdf], pdfName(), { type: 'application/pdf' })] }); }
-  catch (e) { if (e.name !== 'AbortError') toast('分享失敗'); }
+  try { await navigator.share({ files: outFiles() }); }
+  catch (e) { if (e.name !== 'AbortError') toast('分享失敗：' + e.message); }
 };
 $('dlgClose').onclick = () => $('dlg').classList.remove('show');
 
@@ -795,6 +846,8 @@ $('clearAll').onclick = () => {
   pages.splice(0).forEach((p) => p.thumbUrl && URL.revokeObjectURL(p.thumbUrl));
   refreshUI();
 };
+$('verTop').textContent = 'v' + APP_VERSION;
+$('verFoot').textContent = 'v' + APP_VERSION;
 // 測試用掛勾
 window.Photo2PDF = { pages, buildPdf, detectQuad, orderQuad, cvReady };
 refreshUI();
