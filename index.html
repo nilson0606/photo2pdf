@@ -42,7 +42,11 @@ header h1 .ver{font-size:12px;font-weight:500;color:var(--muted);vertical-align:
 .card{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden;display:flex;flex-direction:column}
 .thumb{aspect-ratio:3/4;background:repeating-conic-gradient(var(--line) 0 25%,transparent 0 50%) 0 0/16px 16px;
   display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative}
-.thumb img{max-width:100%;max-height:100%;display:block;box-shadow:0 1px 4px rgba(0,0,0,.25)}
+.thumb img{max-width:100%;max-height:100%;display:block;box-shadow:0 1px 4px rgba(0,0,0,.25);pointer-events:none}
+.card{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+.card.dragging{opacity:.3}
+.drag-ghost{position:fixed;z-index:50;pointer-events:none;margin:0;transform:scale(1.06) rotate(-1.5deg);
+  box-shadow:0 14px 34px rgba(0,0,0,.35);transition:transform .12s}
 .thumb .no{position:absolute;left:8px;top:8px;background:var(--shade);color:#fff;font-size:12px;border-radius:999px;padding:1px 8px}
 .thumb .tag{position:absolute;right:8px;top:8px;background:var(--danger);color:#fff;font-size:11px;border-radius:6px;padding:1px 6px}
 .thumb .spin{font-size:13px;color:var(--muted)}
@@ -113,7 +117,7 @@ header h1 .ver{font-size:12px;font-weight:500;color:var(--muted);vertical-align:
   <label class="add" id="drop">
     <input id="file" type="file" accept="image/*,.heic,.heif" multiple>
     <strong>＋ 加入照片</strong>
-    <span>可一次選多張；會自動偵測文件四角，點縮圖或 ✎ 可手動調整</span>
+    <span>可一次選多張；會自動偵測文件四角，點縮圖或 ✎ 可手動調整，長按縮圖可拖曳排序</span>
   </label>
 
   <div id="grid" class="grid"></div>
@@ -242,7 +246,7 @@ header h1 .ver{font-size:12px;font-weight:500;color:var(--muted);vertical-align:
  * 全部在瀏覽器端處理。MIT License.
  * ========================================================= */
 
-const APP_VERSION = '1.4.0';   // 改版時更新，並在 README 的「版本紀錄」補一行
+const APP_VERSION = '1.5.0';   // 改版時更新，並在 README 的「版本紀錄」補一行
 
 const OPENCV_URLS = [
   'https://cdn.jsdelivr.net/npm/@techstark/opencv-js@4.10.0-release.1/dist/opencv.js',
@@ -645,7 +649,7 @@ function refreshUI() {
   const grid = $('grid');
   grid.innerHTML = '';
   pages.forEach((p, i) => {
-    const card = document.createElement('div'); card.className = 'card';
+    const card = document.createElement('div'); card.className = 'card'; card.dataset.id = p.id;
     const th = document.createElement('div'); th.className = 'thumb';
     if (p.busy || !p.thumbUrl) th.innerHTML = '<span class="spin">處理中…</span>';
     else { const im = new Image(); im.src = p.thumbUrl; im.alt = `第 ${i + 1} 頁`; th.appendChild(im); }
@@ -665,6 +669,95 @@ function refreshUI() {
   $('empty').style.display = pages.length ? 'none' : '';
   $('make').disabled = $('makeImg').disabled = $('makeVid').disabled = !cv || !pages.length || pages.some((p) => p.busy) || videoBusy;
 }
+/* ---------------- 拖曳排序：手機長按、電腦直接拖 ---------------- */
+const drag = { card: null, ghost: null, timer: 0, active: false, sx: 0, sy: 0, ox: 0, oy: 0, x: 0, y: 0, raf: 0, ptr: null, suppressClick: false };
+const LONG_PRESS = 350;
+function dragPrepare(target, x, y) {
+  if (drag.active || drag.card) return false;
+  const card = target.closest && target.closest('#grid .card');
+  if (!card || target.closest('.tools')) return false;
+  const p = pages.find((q) => String(q.id) === card.dataset.id);
+  if (!p || p.busy || videoBusy) return false;
+  drag.card = card; drag.sx = x; drag.sy = y;
+  return true;
+}
+function dragBegin() {
+  const card = drag.card, r = card.getBoundingClientRect();
+  drag.active = true; clearTimeout(drag.timer);
+  drag.ox = drag.sx - r.left; drag.oy = drag.sy - r.top; drag.x = drag.sx; drag.y = drag.sy;
+  const g = card.cloneNode(true);
+  g.classList.add('drag-ghost'); g.style.width = r.width + 'px'; g.style.height = r.height + 'px';
+  g.style.left = r.left + 'px'; g.style.top = r.top + 'px';
+  document.body.appendChild(g); drag.ghost = g;
+  card.classList.add('dragging');
+  const loop = () => {   // 靠近上下邊緣時自動捲動
+    if (!drag.active) return;
+    const barTop = document.querySelector('.bar').getBoundingClientRect().top;
+    let dy = 0;
+    if (drag.y < 70) dy = -Math.ceil((70 - drag.y) / 6);
+    else if (drag.y > barTop - 50) dy = Math.ceil((drag.y - barTop + 50) / 6);
+    if (dy) { window.scrollBy(0, dy); dragMove(drag.x, drag.y); }
+    drag.raf = requestAnimationFrame(loop);
+  };
+  drag.raf = requestAnimationFrame(loop);
+}
+function dragMove(x, y) {
+  drag.x = x; drag.y = y;
+  drag.ghost.style.left = (x - drag.ox) + 'px'; drag.ghost.style.top = (y - drag.oy) + 'px';
+  const grid = $('grid');
+  const el = document.elementFromPoint(x, y);
+  const over = el && el.closest && el.closest('#grid .card');
+  if (!over || over === drag.card) return;
+  const cards = [...grid.children];
+  if (cards.indexOf(over) < cards.indexOf(drag.card)) grid.insertBefore(drag.card, over);
+  else grid.insertBefore(drag.card, over.nextSibling);
+  [...grid.children].forEach((c, i) => { const no = c.querySelector('.no'); if (no) no.textContent = i + 1; });
+  const gno = drag.ghost.querySelector('.no'); if (gno) gno.textContent = [...grid.children].indexOf(drag.card) + 1;
+}
+function dragEnd(commit) {
+  clearTimeout(drag.timer);
+  if (drag.active) {
+    cancelAnimationFrame(drag.raf);
+    drag.ghost.remove();
+    drag.card.classList.remove('dragging');
+    if (commit) {
+      const order = [...$('grid').children].map((c) => c.dataset.id);
+      pages.sort((a, b) => order.indexOf(String(a.id)) - order.indexOf(String(b.id)));
+    }
+    drag.suppressClick = true; setTimeout(() => { drag.suppressClick = false; }, 400);
+    refreshUI();
+  }
+  drag.active = false; drag.card = null; drag.ghost = null; drag.ptr = null;
+}
+// 手機：touch 事件（長按才開始，避免跟捲動打架）
+const gridEl = $('grid');
+gridEl.addEventListener('touchstart', (e) => {
+  if (e.touches.length !== 1) { dragEnd(false); return; }
+  const t = e.touches[0];
+  if (dragPrepare(e.target, t.clientX, t.clientY)) drag.timer = setTimeout(() => { if (drag.card) dragBegin(); }, LONG_PRESS);
+}, { passive: true });
+document.addEventListener('touchmove', (e) => {
+  if (!drag.card) return;
+  const t = e.touches[0];
+  if (drag.active) { e.preventDefault(); dragMove(t.clientX, t.clientY); }
+  else if (Math.hypot(t.clientX - drag.sx, t.clientY - drag.sy) > 10) dragEnd(false);   // 在捲動，不是長按
+}, { passive: false });
+document.addEventListener('touchend', (e) => { if (drag.active) { e.preventDefault(); dragEnd(true); } else dragEnd(false); }, { passive: false });
+document.addEventListener('touchcancel', () => dragEnd(drag.active));
+// 電腦：滑鼠拖超過 6px 就開始
+gridEl.addEventListener('pointerdown', (e) => {
+  if (e.pointerType !== 'mouse' || e.button !== 0) return;
+  if (dragPrepare(e.target, e.clientX, e.clientY)) drag.ptr = e.pointerId;
+});
+window.addEventListener('pointermove', (e) => {
+  if (e.pointerId !== drag.ptr || !drag.card) return;
+  if (!drag.active) { if (Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) > 6) dragBegin(); else return; }
+  dragMove(e.clientX, e.clientY);
+});
+window.addEventListener('pointerup', (e) => { if (e.pointerId === drag.ptr) dragEnd(drag.active); });
+gridEl.addEventListener('click', (e) => { if (drag.suppressClick) { e.stopPropagation(); e.preventDefault(); drag.suppressClick = false; } }, true);
+gridEl.addEventListener('contextmenu', (e) => { if (drag.card) e.preventDefault(); });
+
 function move(i, d) { const j = i + d; if (j < 0 || j >= pages.length) return; [pages[i], pages[j]] = [pages[j], pages[i]]; refreshUI(); }
 async function rotate(p) { p.rot = (p.rot + 90) % 360; p.busy = true; refreshUI(); await makeThumb(p); p.busy = false; refreshUI(); }
 function removePage(i) { const [p] = pages.splice(i, 1); if (p.thumbUrl) URL.revokeObjectURL(p.thumbUrl); refreshUI(); }
