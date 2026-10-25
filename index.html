@@ -38,7 +38,7 @@ header h1 .ver{font-size:12px;font-weight:500;color:var(--muted);vertical-align:
 .add strong{font-size:18px;color:var(--accent)}
 .add span{font-size:13px;color:var(--muted)}
 .add input{display:none}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;margin:8px 0 140px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;margin:8px 0 170px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden;display:flex;flex-direction:column}
 .thumb{aspect-ratio:3/4;background:repeating-conic-gradient(var(--line) 0 25%,transparent 0 50%) 0 0/16px 16px;
   display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative}
@@ -52,11 +52,13 @@ header h1 .ver{font-size:12px;font-weight:500;color:var(--muted);vertical-align:
 .empty{text-align:center;color:var(--muted);padding:24px 8px;font-size:14px}
 .bar{position:fixed;left:0;right:0;bottom:0;background:var(--card);border-top:1px solid var(--line);
   padding:10px 16px calc(10px + env(safe-area-inset-bottom))}
-.bar .in{max-width:900px;margin:0 auto;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.bar .in{max-width:900px;margin:0 auto;display:flex;flex-direction:column;gap:8px}
+.bar .opts{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center}
+.bar .acts2{display:flex;gap:8px;align-items:center}
+.bar .acts2 button:not(.ghost){flex:1;padding:9px 6px;white-space:nowrap}
 .bar label{font-size:13px;color:var(--muted);display:flex;align-items:center;gap:6px}
 .bar select{border:1px solid var(--line);border-radius:8px;padding:5px 6px;background:var(--bg)}
-.bar .go{margin-left:auto}
-.foot{font-size:12px;color:var(--muted);text-align:center;margin-top:-120px;margin-bottom:130px}
+.foot{font-size:12px;color:var(--muted);text-align:center;margin-top:-150px;margin-bottom:160px}
 .foot a{color:var(--muted)}
 
 /* 編輯器 */
@@ -79,13 +81,23 @@ header h1 .ver{font-size:12px;font-weight:500;color:var(--muted);vertical-align:
 .small{font-size:13px;padding:6px 10px}
 
 /* 對話框 */
-#dlg{position:fixed;inset:0;background:var(--shade);display:none;align-items:center;justify-content:center;z-index:20;padding:16px}
-#dlg.show{display:flex}
-#dlg .box{background:var(--card);border-radius:16px;padding:20px;max-width:360px;width:100%;display:flex;flex-direction:column;gap:12px}
-#dlg h2{font-size:18px;margin:0}
-#dlg .meta{font-size:13px;color:var(--muted)}
-#dlg input{border:1px solid var(--line);border-radius:8px;padding:8px;background:var(--bg);width:100%}
-#dlg .acts{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
+.modal{position:fixed;inset:0;background:var(--shade);display:none;align-items:center;justify-content:center;z-index:20;padding:16px}
+.modal.show{display:flex}
+.modal .box{background:var(--card);border-radius:16px;padding:20px;max-width:380px;width:100%;display:flex;flex-direction:column;gap:12px;
+  max-height:calc(100vh - 32px);overflow:auto}
+.modal h2{font-size:18px;margin:0}
+.modal .meta{font-size:13px;color:var(--muted)}
+.modal input[type=text]{border:1px solid var(--line);border-radius:8px;padding:8px;background:var(--bg);width:100%}
+.modal .acts{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
+#dlgVideo{display:none;width:100%;max-height:42vh;border-radius:10px;background:#000}
+.vform{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.vform label{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--muted)}
+.vform label.wide{grid-column:1 / -1}
+.vform select{border:1px solid var(--line);border-radius:8px;padding:7px 6px;background:var(--bg);width:100%}
+.vform input[type=range]{width:100%;accent-color:var(--accent)}
+.vform output{color:var(--fg);font-weight:600}
+.progress{height:6px;background:var(--line);border-radius:3px;overflow:hidden;display:none}
+.progress i{display:block;height:100%;width:0;background:var(--accent);transition:width .2s}
 #toast{position:fixed;left:50%;bottom:110px;transform:translateX(-50%);background:#222a33;color:#fff;font-size:14px;
   padding:8px 14px;border-radius:10px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:30;max-width:90vw;text-align:center}
 #toast.show{opacity:1}
@@ -110,6 +122,7 @@ header h1 .ver{font-size:12px;font-weight:500;color:var(--muted);vertical-align:
 <p class="foot"><span id="verFoot"></span> · 開源（MIT）· 照片不離開你的裝置 · <a href="https://github.com/nilson0606/photo2pdf" id="repoLink" target="_blank" rel="noopener">GitHub</a></p>
 
 <div class="bar"><div class="in">
+  <div class="opts">
   <label>頁面
     <select id="pageSize">
       <option value="fit">符合照片</option>
@@ -131,9 +144,13 @@ header h1 .ver{font-size:12px;font-weight:500;color:var(--muted);vertical-align:
       <option value="bw">黑白</option>
     </select>
   </label>
-  <button id="clearAll" class="ghost small">清空</button>
-  <button id="makeImg" class="go" disabled>存成照片</button>
-  <button id="make" class="primary" disabled>產生 PDF</button>
+  </div>
+  <div class="acts2">
+    <button id="clearAll" class="ghost small">清空</button>
+    <button id="makeImg" disabled>存成照片</button>
+    <button id="makeVid" disabled>做成影片</button>
+    <button id="make" class="primary" disabled>產生 PDF</button>
+  </div>
 </div></div>
 
 <div id="editor">
@@ -158,8 +175,9 @@ header h1 .ver{font-size:12px;font-weight:500;color:var(--muted);vertical-align:
   </div>
 </div>
 
-<div id="dlg"><div class="box">
+<div id="dlg" class="modal"><div class="box">
   <h2 id="dlgTitle">產生 PDF</h2>
+  <video id="dlgVideo" playsinline controls muted></video>
   <div class="meta" id="dlgMeta"></div>
   <label class="meta" for="fname" id="fnameLabel">檔名</label>
   <input id="fname" type="text" spellcheck="false">
@@ -168,6 +186,42 @@ header h1 .ver{font-size:12px;font-weight:500;color:var(--muted);vertical-align:
     <button id="dlgClose">關閉</button>
     <button id="dlgShare" style="display:none">分享</button>
     <button id="dlgSave" class="primary">下載</button>
+  </div>
+</div></div>
+<div id="vdlg" class="modal"><div class="box">
+  <h2>做成影片</h2>
+  <div class="vform">
+    <label>畫面比例
+      <select id="vAspect"><option value="9:16">直式 9:16</option><option value="16:9">橫式 16:9</option><option value="1:1">方形 1:1</option></select>
+    </label>
+    <label>內容
+      <select id="vSource"><option value="page">框選後的頁面</option><option value="orig">原始整張照片</option></select>
+    </label>
+    <label class="wide">每張秒數：<output id="vDurOut"></output>
+      <input id="vDur" type="range" min="1" max="10" step="0.5">
+    </label>
+    <label>轉場
+      <select id="vTrans"><option value="cross">交叉淡入淡出</option><option value="black">黑場淡入淡出</option><option value="none">無轉場</option></select>
+    </label>
+    <label>轉場秒數：<output id="vTrOut"></output>
+      <input id="vTr" type="range" min="0.2" max="2" step="0.1">
+    </label>
+    <label>動態效果
+      <select id="vMotion"><option value="zoom">緩慢放大</option><option value="none">關閉</option></select>
+    </label>
+    <label>影片濾鏡
+      <select id="vFilter"><option value="none">原色</option><option value="gray">黑白</option><option value="sepia">懷舊</option><option value="warm">暖色</option><option value="cool">冷色</option><option value="vivid">鮮豔</option></select>
+    </label>
+    <label class="wide">空白處背景
+      <select id="vBg"><option value="blur">模糊照片</option><option value="black">黑色</option><option value="white">白色</option></select>
+    </label>
+  </div>
+  <div class="meta" id="vInfo"></div>
+  <div class="progress" id="vProg"><i></i></div>
+  <div class="acts">
+    <button id="vReset" class="ghost small">恢復預設</button>
+    <button id="vCancel">取消</button>
+    <button id="vGo" class="primary">開始製作</button>
   </div>
 </div></div>
 <div id="toast"></div>
@@ -179,7 +233,7 @@ header h1 .ver{font-size:12px;font-weight:500;color:var(--muted);vertical-align:
  * 全部在瀏覽器端處理。MIT License.
  * ========================================================= */
 
-const APP_VERSION = '1.2.0';   // 改版時更新，並在 README 的「版本紀錄」補一行
+const APP_VERSION = '1.3.0';   // 改版時更新，並在 README 的「版本紀錄」補一行
 
 const OPENCV_URLS = [
   'https://cdn.jsdelivr.net/npm/@techstark/opencv-js@4.10.0-release.1/dist/opencv.js',
@@ -600,7 +654,7 @@ function refreshUI() {
     grid.appendChild(card);
   });
   $('empty').style.display = pages.length ? 'none' : '';
-  $('make').disabled = $('makeImg').disabled = !cv || !pages.length || pages.some((p) => p.busy);
+  $('make').disabled = $('makeImg').disabled = $('makeVid').disabled = !cv || !pages.length || pages.some((p) => p.busy) || videoBusy;
 }
 function move(i, d) { const j = i + d; if (j < 0 || j >= pages.length) return; [pages[i], pages[j]] = [pages[j], pages[i]]; refreshUI(); }
 async function rotate(p) { p.rot = (p.rot + 90) % 360; p.busy = true; refreshUI(); await makeThumb(p); p.busy = false; refreshUI(); }
@@ -788,6 +842,7 @@ async function runOutput(mode) {
       $('fname').value = stamp();
       $('dlgMeta').textContent = `${shots.length} 張 JPG · 共 ${(size / 1048576).toFixed(1)} MB`;
     }
+    $('dlgVideo').style.display = 'none';
     const files = outFiles();
     const canShare = !!(navigator.canShare && navigator.canShare({ files }));
     $('dlgShare').style.display = canShare ? '' : 'none';
@@ -804,6 +859,11 @@ async function runOutput(mode) {
   }
 }
 function outFiles() {
+  if (out.mode === 'video') {
+    let n = $('fname').value.trim() || stamp();
+    n = n.replace(/\.(mp4|webm|mov)$/i, '') + '.' + out.ext;
+    return [new File([out.video], n, { type: out.video.type })];
+  }
   if (out.mode === 'pdf') {
     let n = $('fname').value.trim() || stamp() + '.pdf';
     if (!/\.pdf$/i.test(n)) n += '.pdf';
@@ -832,7 +892,282 @@ $('dlgShare').onclick = async () => {
   try { await navigator.share({ files: outFiles() }); }
   catch (e) { if (e.name !== 'AbortError') toast('分享失敗：' + e.message); }
 };
-$('dlgClose').onclick = () => $('dlg').classList.remove('show');
+$('dlgClose').onclick = () => {
+  $('dlg').classList.remove('show');
+  const vid = $('dlgVideo'); vid.pause();
+};
+
+/* ---------------- 做成影片 ---------------- */
+const MP4MUXER_URL = 'https://cdn.jsdelivr.net/npm/mp4-muxer@5.2.1/build/mp4-muxer.js';
+const VIDEO_DEFAULTS = { aspect: '9:16', source: 'page', dur: 3, trans: 'cross', tr: 0.8, motion: 'zoom', filter: 'none', bg: 'blur' };
+const VIDEO_SIZES = { '9:16': [1080, 1920], '16:9': [1920, 1080], '1:1': [1080, 1080] };
+const FPS = 30;
+const EDGE_FADE = 0.5;    // 影片開頭從黑畫面淡入、結尾淡出到黑畫面的秒數
+const ZOOM = 0.06;        // 「緩慢放大」每張放大 6%
+const VBITRATE = 6_000_000;
+const VKEY = 'photo2pdf.video';
+let videoBusy = false, videoCancel = false;
+
+const vFields = { aspect: 'vAspect', source: 'vSource', dur: 'vDur', trans: 'vTrans', tr: 'vTr', motion: 'vMotion', filter: 'vFilter', bg: 'vBg' };
+function loadVideoSettings() {
+  let saved = {};
+  try { saved = JSON.parse(localStorage.getItem(VKEY) || '{}') || {}; } catch (e) { saved = {}; }
+  return { ...VIDEO_DEFAULTS, ...saved };
+}
+function saveVideoSettings(v) { try { localStorage.setItem(VKEY, JSON.stringify(v)); } catch (e) { /* 私密瀏覽等情況忽略 */ } }
+function readVideoForm() {
+  const v = {};
+  for (const [k, id] of Object.entries(vFields)) v[k] = $(id).value;
+  v.dur = +v.dur; v.tr = +v.tr;
+  return v;
+}
+function fillVideoForm(v) {
+  for (const [k, id] of Object.entries(vFields)) $(id).value = v[k];
+  updateVideoInfo();
+}
+function updateVideoInfo() {
+  const v = readVideoForm();
+  $('vDurOut').textContent = v.dur + ' 秒';
+  $('vTrOut').textContent = v.tr.toFixed(1) + ' 秒';
+  $('vTr').disabled = v.trans === 'none';
+  const [W, H] = VIDEO_SIZES[v.aspect];
+  $('vInfo').textContent = `共 ${pages.length} 張 · 約 ${Math.round(pages.length * v.dur)} 秒 · ${W}×${H} MP4`;
+}
+Object.values(vFields).forEach((id) => $(id).addEventListener('input', updateVideoInfo));
+
+/* 影片濾鏡（直接改像素，iPhone Safari 不一定支援 canvas filter） */
+function videoColorFilter(canvas, f) {
+  if (!f || f === 'none') return;
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  const im = ctx.getImageData(0, 0, canvas.width, canvas.height), d = im.data;
+  for (let i = 0; i < d.length; i += 4) {
+    const r = d[i], g = d[i + 1], b = d[i + 2];
+    const y = 0.299 * r + 0.587 * g + 0.114 * b;
+    if (f === 'gray') { d[i] = d[i + 1] = d[i + 2] = y; }
+    else if (f === 'sepia') {
+      d[i] = 0.393 * r + 0.769 * g + 0.189 * b;
+      d[i + 1] = 0.349 * r + 0.686 * g + 0.168 * b;
+      d[i + 2] = 0.272 * r + 0.534 * g + 0.131 * b;
+    } else if (f === 'warm') { d[i] = r * 1.06 + 12; d[i + 1] = g * 1.02 + 4; d[i + 2] = b * 0.88; }
+    else if (f === 'cool') { d[i] = r * 0.9; d[i + 1] = g + 2; d[i + 2] = b * 1.08 + 12; }
+    else if (f === 'vivid') {
+      d[i] = (y + (r - y) * 1.4 - 128) * 1.08 + 128;
+      d[i + 1] = (y + (g - y) * 1.4 - 128) * 1.08 + 128;
+      d[i + 2] = (y + (b - y) * 1.4 - 128) * 1.08 + 128;
+    }
+  }
+  ctx.putImageData(im, 0, 0);
+}
+function rotateCanvas(c, rot) {
+  if (!rot) return c;
+  const r = document.createElement('canvas');
+  const swap = rot % 180 !== 0;
+  r.width = swap ? c.height : c.width; r.height = swap ? c.width : c.height;
+  const ctx = r.getContext('2d');
+  ctx.translate(r.width / 2, r.height / 2); ctx.rotate(rot * Math.PI / 180);
+  ctx.drawImage(c, -c.width / 2, -c.height / 2);
+  freeCanvas(c);
+  return r;
+}
+/** 一張投影片：背景（模糊／黑／白）＋ 完整放進畫面的照片，再套影片濾鏡 */
+async function buildSlide(p, v, W, H) {
+  const img = await loadImage(p.src);
+  let src;
+  if (v.source === 'page') {
+    const sc = drawScaled(img, QUALITY.std.srcMax);
+    src = renderPage(sc, p, Math.max(W, H));
+    freeCanvas(sc);
+  } else {
+    src = rotateCanvas(drawScaled(img, Math.max(W, H)), p.rot);
+  }
+  freeImage(img);
+  const sl = document.createElement('canvas'); sl.width = W; sl.height = H;
+  const ctx = sl.getContext('2d');
+  ctx.imageSmoothingQuality = 'high';
+  if (v.bg === 'blur') {
+    // 縮到很小再放大＝模糊；用「填滿」比例鋪滿整個畫面
+    const cover = Math.max(W / src.width, H / src.height);
+    const cw = src.width * cover, ch = src.height * cover;
+    const t1 = document.createElement('canvas'); t1.width = Math.max(1, Math.round(W / 32)); t1.height = Math.max(1, Math.round(H / 32));
+    t1.getContext('2d').drawImage(src, (W - cw) / 2 / 32, (H - ch) / 2 / 32, cw / 32, ch / 32);
+    const t2 = document.createElement('canvas'); t2.width = Math.round(W / 8); t2.height = Math.round(H / 8);
+    const c2 = t2.getContext('2d'); c2.imageSmoothingQuality = 'high'; c2.drawImage(t1, 0, 0, t2.width, t2.height);
+    ctx.drawImage(t2, 0, 0, W, H);
+    ctx.fillStyle = 'rgba(0,0,0,.28)'; ctx.fillRect(0, 0, W, H);
+    freeCanvas(t1); freeCanvas(t2);
+  } else {
+    ctx.fillStyle = v.bg === 'white' ? '#fff' : '#000'; ctx.fillRect(0, 0, W, H);
+  }
+  const fit = Math.min(W / src.width, H / src.height);
+  const fw = src.width * fit, fh = src.height * fit;
+  ctx.drawImage(src, (W - fw) / 2, (H - fh) / 2, fw, fh);
+  freeCanvas(src);
+  videoColorFilter(sl, v.filter);
+  return sl;
+}
+/** 依時間畫出一格：處理轉場、緩慢放大、頭尾淡入淡出 */
+function makeTimeline(v, n, W, H) {
+  const D = v.dur;
+  const T = v.trans === 'none' ? 0 : Math.min(v.tr, D * 0.8);
+  const total = n * D;
+  const cache = new Map();
+  const get = (i) => {
+    if (!cache.has(i)) cache.set(i, buildSlide(pages[i], v, W, H));
+    return cache.get(i);
+  };
+  const smooth = (a) => { a = Math.min(1, Math.max(0, a)); return a * a * (3 - 2 * a); };
+  const drawSlide = (ctx, sl, i, t, alpha) => {
+    const zp = Math.min(1, Math.max(0, (t - i * D + T) / (D + T)));
+    const s = v.motion === 'zoom' ? 1 + ZOOM * zp : 1;
+    ctx.globalAlpha = alpha;
+    ctx.drawImage(sl, (W - W * s) / 2, (H - H * s) / 2, W * s, H * s);
+    ctx.globalAlpha = 1;
+  };
+  async function drawAt(ctx, t) {
+    const i = Math.min(n - 1, Math.floor(t / D));
+    const local = t - i * D;
+    // 釋放用完的投影片、預先準備下一張
+    for (const k of [...cache.keys()]) if (k < i) { cache.get(k).then(freeCanvas); cache.delete(k); }
+    if (i + 1 < n) get(i + 1);
+    const cur = await get(i);
+    ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
+    if (v.trans === 'cross') {
+      drawSlide(ctx, cur, i, t, 1);
+      if (i + 1 < n && local > D - T) drawSlide(ctx, await get(i + 1), i + 1, t, smooth((local - (D - T)) / T));
+    } else if (v.trans === 'black') {
+      let a = 1;
+      if (i > 0 && local < T / 2) a = smooth(local / (T / 2));
+      if (i + 1 < n && local > D - T / 2) a = smooth((D - local) / (T / 2));
+      drawSlide(ctx, cur, i, t, a);
+    } else drawSlide(ctx, cur, i, t, 1);
+    // 頭尾淡入淡出
+    const edge = Math.min(1, t / EDGE_FADE, (total - t) / EDGE_FADE);
+    if (edge < 1) { ctx.fillStyle = `rgba(0,0,0,${1 - smooth(edge)})`; ctx.fillRect(0, 0, W, H); }
+  }
+  function release() { for (const pr of cache.values()) pr.then(freeCanvas); cache.clear(); }
+  return { total, drawAt, release };
+}
+/** 做法 A：WebCodecs 編碼 H.264 + mp4-muxer 封裝（比即時快） */
+async function encodeWebCodecs(W, H, tl, onProgress) {
+  if (!window.Mp4Muxer) await loadScript(MP4MUXER_URL);
+  let config = null;
+  for (const codec of ['avc1.640028', 'avc1.4d0028', 'avc1.42e028']) {
+    const cfg = { codec, width: W, height: H, bitrate: VBITRATE, framerate: FPS, avc: { format: 'avc' } };
+    try { if ((await VideoEncoder.isConfigSupported(cfg)).supported) { config = cfg; break; } } catch (e) { /* 試下一個 */ }
+  }
+  if (!config) throw new Error('此裝置不支援 H.264 編碼');
+  const muxer = new Mp4Muxer.Muxer({ target: new Mp4Muxer.ArrayBufferTarget(), video: { codec: 'avc', width: W, height: H, frameRate: FPS }, fastStart: 'in-memory' });
+  let encErr = null;
+  const enc = new VideoEncoder({ output: (chunk, meta) => muxer.addVideoChunk(chunk, meta), error: (e) => { encErr = e; } });
+  enc.configure(config);
+  const canvas = document.createElement('canvas'); canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  const frames = Math.round(tl.total * FPS);
+  try {
+    for (let f = 0; f < frames; f++) {
+      if (encErr) throw encErr;
+      if (videoCancel) throw new Error('CANCEL');
+      await tl.drawAt(ctx, f / FPS);
+      const vf = new VideoFrame(canvas, { timestamp: Math.round(f * 1e6 / FPS), duration: Math.round(1e6 / FPS) });
+      enc.encode(vf, { keyFrame: f % (FPS * 2) === 0 });
+      vf.close();
+      while (enc.encodeQueueSize > 6) await sleep(4);
+      if (f % 10 === 0) { onProgress(f / frames); await sleep(0); }
+    }
+    await enc.flush();
+    if (encErr) throw encErr;
+  } finally {
+    if (enc.state !== 'closed') enc.close();
+    freeCanvas(canvas);
+  }
+  muxer.finalize();
+  return new Blob([muxer.target.buffer], { type: 'video/mp4' });
+}
+/** 做法 B（備援）：邊播邊錄，影片多長就要等多久 */
+async function encodeRecorder(W, H, tl, onProgress) {
+  const mime = ['video/mp4;codecs=avc1', 'video/mp4', 'video/webm;codecs=vp9', 'video/webm'].find((t) => MediaRecorder.isTypeSupported(t));
+  if (!mime) throw new Error('此瀏覽器無法錄製影片');
+  const canvas = document.createElement('canvas'); canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  await tl.drawAt(ctx, 0);
+  const stream = canvas.captureStream(FPS);
+  const rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: VBITRATE });
+  const chunks = [];
+  rec.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
+  const stopped = new Promise((r) => { rec.onstop = r; });
+  rec.start(1000);
+  const t0 = performance.now();
+  try {
+    for (;;) {
+      if (videoCancel) throw new Error('CANCEL');
+      const t = (performance.now() - t0) / 1000;
+      if (t >= tl.total) break;
+      await tl.drawAt(ctx, t);
+      onProgress(t / tl.total);
+      await new Promise((r) => requestAnimationFrame(r));
+    }
+  } finally {
+    rec.stop(); await stopped;
+    stream.getTracks().forEach((tr) => tr.stop());
+    freeCanvas(canvas);
+  }
+  return new Blob(chunks, { type: mime.split(';')[0] });
+}
+async function makeVideo() {
+  const v = readVideoForm();
+  saveVideoSettings(v);
+  const [W, H] = VIDEO_SIZES[v.aspect];
+  const tl = makeTimeline(v, pages.length, W, H);
+  const prog = $('vProg'), bar = prog.firstElementChild;
+  const onProgress = (r) => { bar.style.width = Math.round(r * 100) + '%'; $('vGo').textContent = `製作中 ${Math.round(r * 100)}%`; };
+  videoBusy = true; videoCancel = false; refreshUI();
+  $('vGo').disabled = true; $('vReset').disabled = true; prog.style.display = 'block'; $('vCancel').textContent = '停止';
+  let wake = null;
+  try { wake = await navigator.wakeLock?.request('screen'); } catch (e) { wake = null; }   // 製作中別讓螢幕關掉
+  try {
+    let blob;
+    if (typeof VideoEncoder !== 'undefined' && typeof VideoFrame !== 'undefined') {
+      try { blob = await encodeWebCodecs(W, H, tl, onProgress); }
+      catch (e) { if (e.message === 'CANCEL') throw e; console.warn('WebCodecs 失敗，改用邊播邊錄', e); }
+    }
+    if (!blob) { toast('此裝置改用「邊播邊錄」，請保持螢幕開著', 3500); blob = await encodeRecorder(W, H, tl, onProgress); }
+    onProgress(1);
+    $('vdlg').classList.remove('show');
+    showVideoResult(blob, tl.total);
+  } catch (e) {
+    if (e.message === 'CANCEL') toast('已停止');
+    else { console.error(e); toast('影片製作失敗：' + (e && e.message ? e.message : e), 4000); }
+  } finally {
+    tl.release();
+    try { wake && wake.release(); } catch (e) { /* 忽略 */ }
+    videoBusy = false;
+    $('vGo').disabled = false; $('vReset').disabled = false; $('vGo').textContent = '開始製作';
+    prog.style.display = 'none'; bar.style.width = '0'; $('vCancel').textContent = '取消';
+    refreshUI();
+  }
+}
+function showVideoResult(blob, seconds) {
+  const ext = /mp4/.test(blob.type) ? 'mp4' : 'webm';
+  out = { mode: 'video', video: blob, ext };
+  $('dlgTitle').textContent = '影片已完成';
+  $('fnameLabel').textContent = '檔名';
+  $('fname').value = stamp() + '.' + ext;
+  $('dlgMeta').textContent = `${pages.length} 張 · ${Math.round(seconds)} 秒 · ${(blob.size / 1048576).toFixed(1)} MB · ${ext.toUpperCase()}`;
+  const vid = $('dlgVideo');
+  if (vid._url) URL.revokeObjectURL(vid._url);
+  vid._url = URL.createObjectURL(blob); vid.src = vid._url; vid.style.display = 'block';
+  vid.onloadedmetadata = () => { try { vid.currentTime = Math.min(1, vid.duration / 2); } catch (e) { /* 忽略 */ } };
+  const canShare = !!(navigator.canShare && navigator.canShare({ files: outFiles() }));
+  $('dlgShare').style.display = canShare ? '' : 'none';
+  $('dlgShare').textContent = '分享／存到照片';
+  $('dlgSave').textContent = '下載';
+  $('dlgHint').textContent = canShare ? 'iPhone：按「分享／存到照片」，在選單中選「儲存影片」就會存進「照片」App。' : '';
+  $('dlg').classList.add('show');
+}
+$('makeVid').onclick = () => { fillVideoForm(loadVideoSettings()); $('vdlg').classList.add('show'); };
+$('vReset').onclick = () => fillVideoForm({ ...VIDEO_DEFAULTS });
+$('vCancel').onclick = () => { if (videoBusy) videoCancel = true; else $('vdlg').classList.remove('show'); };
+$('vGo').onclick = () => { if (!videoBusy && pages.length) makeVideo(); };
 
 /* ---------------- 其他事件 ---------------- */
 $('file').onchange = (e) => { addFiles(e.target.files); e.target.value = ''; };
