@@ -54,6 +54,9 @@ header h1 .ver{font-size:12px;font-weight:500;color:var(--muted);vertical-align:
 .tools button{padding:6px 0;flex:1;border:none;background:transparent;font-size:17px;border-radius:8px}
 .tools button:active{background:var(--line)}
 .empty{text-align:center;color:var(--muted);padding:24px 8px;font-size:14px}
+.gridbar{display:none;align-items:center;justify-content:space-between;gap:8px;margin:4px 0 8px}
+.gridbar.show{display:flex}
+.gridbar span{font-size:13px;color:var(--muted)}
 .bar{position:fixed;left:0;right:0;bottom:0;background:var(--card);border-top:1px solid var(--line);
   padding:10px 16px calc(10px + env(safe-area-inset-bottom))}
 .bar .in{max-width:900px;margin:0 auto;display:flex;flex-direction:column;gap:8px}
@@ -102,7 +105,7 @@ header h1 .ver{font-size:12px;font-weight:500;color:var(--muted);vertical-align:
 .vform output{color:var(--fg);font-weight:600}
 .progress{height:6px;background:var(--line);border-radius:3px;overflow:hidden;display:none}
 .progress i{display:block;height:100%;width:0;background:var(--accent);transition:width .2s}
-#toast{position:fixed;left:50%;bottom:110px;transform:translateX(-50%);background:#222a33;color:#fff;font-size:14px;
+#toast{position:fixed;left:50%;bottom:calc(175px + env(safe-area-inset-bottom));transform:translateX(-50%);background:#222a33;color:#fff;font-size:14px;
   padding:8px 14px;border-radius:10px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:30;max-width:90vw;text-align:center}
 #toast.show{opacity:1}
 </style>
@@ -120,6 +123,10 @@ header h1 .ver{font-size:12px;font-weight:500;color:var(--muted);vertical-align:
     <span>可一次選多張；會自動偵測文件四角，點縮圖或 ✎ 可手動調整，長按縮圖可拖曳排序</span>
   </label>
 
+  <div id="gridbar" class="gridbar">
+    <span id="count"></span>
+    <button id="autoAll" class="small">全部自動框選</button>
+  </div>
   <div id="grid" class="grid"></div>
   <div id="empty" class="empty">還沒有照片。照片只在你的裝置上處理，不會上傳。</div>
 </div>
@@ -246,7 +253,7 @@ header h1 .ver{font-size:12px;font-weight:500;color:var(--muted);vertical-align:
  * 全部在瀏覽器端處理。MIT License.
  * ========================================================= */
 
-const APP_VERSION = '1.5.0';   // 改版時更新，並在 README 的「版本紀錄」補一行
+const APP_VERSION = '1.6.0';   // 改版時更新，並在 README 的「版本紀錄」補一行
 
 const OPENCV_URLS = [
   'https://cdn.jsdelivr.net/npm/@techstark/opencv-js@4.10.0-release.1/dist/opencv.js',
@@ -667,8 +674,47 @@ function refreshUI() {
     grid.appendChild(card);
   });
   $('empty').style.display = pages.length ? 'none' : '';
+  $('gridbar').classList.toggle('show', pages.length > 0);
+  const nd = pages.filter((p) => p.noDoc && !p.busy).length;
+  $('count').textContent = `共 ${pages.length} 張` + (nd ? ` · ${nd} 張需要手動框` : '');
+  if (!autoAllBusy) $('autoAll').disabled = !cv || pages.some((p) => p.busy) || videoBusy;
   $('make').disabled = $('makeImg').disabled = $('makeVid').disabled = !cv || !pages.length || pages.some((p) => p.busy) || videoBusy;
 }
+/* ---------------- 全部自動框選 ---------------- */
+let autoAllBusy = false;
+$('autoAll').onclick = async () => {
+  if (autoAllBusy || !cv || !pages.length) return;
+  let targets = pages.filter((p) => !p.busy);
+  const manual = targets.filter((p) => p.manual).length;
+  if (manual && !confirm(`有 ${manual} 張是你手動調整過的。\n\n確定：全部重新自動框選（手動調整會被取代）\n取消：只框沒手動調整過的，保留你的調整`)) {
+    targets = targets.filter((p) => !p.manual);
+  }
+  if (!targets.length) { toast('沒有需要重新框選的照片'); return; }
+  const btn = $('autoAll');
+  autoAllBusy = true; btn.disabled = true;
+  targets.forEach((p) => { p.busy = true; });
+  refreshUI();
+  let ok = 0, fail = 0;
+  for (let k = 0; k < targets.length; k++) {
+    const p = targets[k];
+    btn.textContent = `框選中 ${k + 1}/${targets.length}`;
+    await sleep(0);
+    let img = null, c = null;
+    try {
+      img = await loadImage(p.preview);
+      c = drawScaled(img, PREVIEW_MAX);
+      const q = detectQuad(c);
+      if (q) { p.quad = q; p.noDoc = false; p.manual = false; ok++; }
+      else { fail++; if (!p.manual) p.noDoc = true; }   // 偵測不到：保留原本的框
+      await makeThumb(p, c);
+    } catch (e) { console.error(e); fail++; }
+    finally { freeImage(img); freeCanvas(c); p.busy = false; refreshUI(); }
+  }
+  autoAllBusy = false; btn.textContent = '全部自動框選';
+  refreshUI();
+  toast(fail ? `已框選 ${ok} 張；${fail} 張偵測不到，保留原本的框` : `已重新框選 ${ok} 張`, 3000);
+};
+
 /* ---------------- 拖曳排序：手機長按、電腦直接拖 ---------------- */
 const drag = { card: null, ghost: null, timer: 0, active: false, sx: 0, sy: 0, ox: 0, oy: 0, x: 0, y: 0, raf: 0, ptr: null, suppressClick: false };
 const LONG_PRESS = 350;
@@ -885,7 +931,7 @@ $('edDone').onclick = async () => {
   const p = ed.page;
   const area = polyArea(ed.quad);
   if (area < 0.01) { toast('框選範圍太小'); return; }
-  p.quad = orderQuad(ed.quad); p.filter = ed.filter; p.noDoc = false;
+  p.quad = orderQuad(ed.quad); p.filter = ed.filter; p.noDoc = false; p.manual = true;
   closeEditor();
   const dirty = pages.filter((x) => x === p || x._dirty);
   dirty.forEach((x) => { x.busy = true; x._dirty = false; });
