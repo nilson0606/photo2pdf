@@ -253,7 +253,7 @@ header h1 .ver{font-size:12px;font-weight:500;color:var(--muted);vertical-align:
  * 全部在瀏覽器端處理。MIT License.
  * ========================================================= */
 
-const APP_VERSION = '1.6.0';   // 改版時更新，並在 README 的「版本紀錄」補一行
+const APP_VERSION = '1.7.0';   // 改版時更新，並在 README 的「版本紀錄」補一行
 
 const OPENCV_URLS = [
   'https://cdn.jsdelivr.net/npm/@techstark/opencv-js@4.10.0-release.1/dist/opencv.js',
@@ -374,7 +374,8 @@ cvReady.then(() => {
 /* ---------------- 影像處理（OpenCV） ---------------- */
 /**
  * 框邊支持度：沿四條邊取樣，比較「框內」與「框外」的亮度。
- * 真正的紙張邊緣整條都是一邊亮一邊暗（方向一致）；落在雜亂紋理上的假邊緣會忽亮忽暗。
+ * 真正的紙張邊緣整條都是「框內（紙）比框外亮」；落在雜亂紋理上的假邊緣會忽亮忽暗。
+ * 只接受框內較亮：否則一整塊文字區（內暗外亮）會被誤認成紙，已框好的照片重新匯入時會被再切一次。
  * 貼著照片邊框的邊（紙超出畫面）只給 0.5 分。
  * 回傳 [平均, 最低, 貼邊框的邊數]
  */
@@ -405,7 +406,7 @@ function edgeSupport(q, g, W, H) {
     }
     let s;
     if (nb > N * 0.5) { s = 0.5; borderEdges++; }
-    else s = (Math.max(pos, neg) + 0.5 * nb) / N;
+    else s = (pos + 0.5 * nb) / N;
     sum += s; min = Math.min(min, s);
   }
   return [sum / 4, min, borderEdges];
@@ -418,6 +419,13 @@ function edgeSupport(q, g, W, H) {
  *   - 開運算：切斷紙張與背景之間的細小連接
  *   - 大閉運算：接回被細長物體（背帶、手指）切開的紙
  */
+const MIN_SUPPORT = 0.3;
+/** 照片外圍 3% 的四條邊帶，平均亮度都高於 Otsu 門檻 → 四邊都是紙 */
+function borderIsPaper(g, W, H, otsu) {
+  const b = Math.max(2, Math.floor(Math.min(W, H) * 0.03));
+  const mean = (x0, y0, x1, y1) => { let s = 0, n = 0; for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) { s += g[y * W + x]; n++; } return s / n; };
+  return [mean(0, 0, W, b), mean(0, H - b, W, H), mean(0, 0, b, H), mean(W - b, 0, W, H)].every((m) => m > otsu);
+}
 function detectQuad(canvas) {
   const mats = [];
   const M = (m) => (mats.push(m), m);
@@ -458,7 +466,7 @@ function detectQuad(canvas) {
       masks.push(t, o, b);
     }
 
-    let best = null, bestScore = 0;
+    let best = null, bestScore = 0, bestArea = 0;
     for (const mask of masks) {
       const contours = new cv.MatVector(), hier = new cv.Mat();
       cv.findContours(mask, contours, hier, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE);
@@ -485,11 +493,14 @@ function detectQuad(canvas) {
         const fill = Math.min(1, area / qa);                      // 框內有多少是實心的
         const [sup, mn, borderEdges] = edgeSupport(quad, g, W, H);
         if (borderEdges >= 3) continue;                           // 三邊以上貼著照片邊框 → 是背景
+        if (sup < MIN_SUPPORT) continue;                          // 框邊沒有明顯的紙張邊緣 → 寧可不要
         const score = (qa / imgArea) * fill * fill * sup * (0.5 + 0.5 * mn);
-        if (score > bestScore) { bestScore = score; best = quad; }
+        if (score > bestScore) { bestScore = score; best = quad; bestArea = qa / imgArea; }
       }
       contours.delete(); hier.delete();
     }
+    // 照片四邊都是亮的紙色、又沒有夠大的候選框 → 這張已經是整頁（例如匯出後再匯入）
+    if ((!best || bestArea < 0.5) && borderIsPaper(g, W, H, otsu)) return FULL_QUAD();
     if (!best) return null;
     return orderQuad(best).map(([x, y]) => [Math.min(1, Math.max(0, x / (W - 1))), Math.min(1, Math.max(0, y / (H - 1)))]);
   } finally {
@@ -922,7 +933,11 @@ $('edFilterAll').onclick = async () => {
 $('edAuto').onclick = () => {
   const c = drawScaled(ed.img, PREVIEW_MAX);
   const q = detectQuad(c); freeCanvas(c);
-  if (q) { ed.quad = q; drawEditor(); toast('已自動偵測'); }
+  if (q) {
+    ed.quad = q; drawEditor();
+    const full = q.every(([x, y], k) => Math.abs(x - [0, 1, 1, 0][k]) < 0.01 && Math.abs(y - [0, 0, 1, 1][k]) < 0.01);
+    toast(full ? '這張看起來已經是整頁，使用整張照片' : '已自動偵測');
+  }
   else toast('偵測不到文件邊緣，請手動拖曳');
 };
 $('edFull').onclick = () => { ed.quad = FULL_QUAD(); drawEditor(); };
