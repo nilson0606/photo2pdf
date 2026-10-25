@@ -4,10 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Photo2PDF">
+<meta name="apple-mobile-web-app-title" content="Photo2Media">
 <meta name="theme-color" content="#1f6feb">
-<meta name="description" content="把 iPhone 照片轉成 PDF：自動偵測文件四角或手動拖曳，透視校正，全部在裝置上處理。">
-<title>Photo2PDF</title>
+<meta name="description" content="把 iPhone 照片轉成 PDF、照片或影片：自動偵測文件四角或手動拖曳，透視校正，全部在裝置上處理。">
+<title>Photo2Media</title>
 <style>
 :root{
   --bg:#f5f6f8; --card:#ffffff; --fg:#1b2130; --muted:#667085; --line:#e2e5ea;
@@ -106,7 +106,7 @@ header h1 .ver{font-size:12px;font-weight:500;color:var(--muted);vertical-align:
 <body>
 <div class="wrap">
   <header>
-    <h1>Photo2PDF <span class="ver" id="verTop"></span></h1>
+    <h1>Photo2Media <span class="ver" id="verTop"></span></h1>
     <span id="cvStatus" class="status">載入影像引擎中…</span>
   </header>
 
@@ -119,7 +119,7 @@ header h1 .ver{font-size:12px;font-weight:500;color:var(--muted);vertical-align:
   <div id="grid" class="grid"></div>
   <div id="empty" class="empty">還沒有照片。照片只在你的裝置上處理，不會上傳。</div>
 </div>
-<p class="foot"><span id="verFoot"></span> · 開源（MIT）· 照片不離開你的裝置 · <a href="https://github.com/nilson0606/photo2pdf" id="repoLink" target="_blank" rel="noopener">GitHub</a></p>
+<p class="foot"><span id="verFoot"></span> · 開源（MIT）· 照片不離開你的裝置 · <a href="https://github.com/nilson0606/photo2media" id="repoLink" target="_blank" rel="noopener">GitHub</a></p>
 
 <div class="bar"><div class="in">
   <div class="opts">
@@ -200,10 +200,18 @@ header h1 .ver{font-size:12px;font-weight:500;color:var(--muted);vertical-align:
     <label class="wide">每張秒數：<output id="vDurOut"></output>
       <input id="vDur" type="range" min="1" max="10" step="0.5">
     </label>
-    <label>轉場
-      <select id="vTrans"><option value="cross">交叉淡入淡出</option><option value="black">黑場淡入淡出</option><option value="none">無轉場</option></select>
+    <label>轉場方式
+      <select id="vTransMode"><option value="fixed">固定</option><option value="cycle">輪流</option><option value="random">隨機</option></select>
     </label>
-    <label>轉場秒數：<output id="vTrOut"></output>
+    <label>轉場效果
+      <select id="vTrans">
+        <option value="cross">交叉淡入淡出</option><option value="black">黑場淡入淡出</option><option value="white">白場閃白</option>
+        <option value="pushL">左右推移</option><option value="pushU">上下推移</option><option value="cover">滑入覆蓋</option>
+        <option value="zoomIn">放大淡入</option><option value="circle">圓形展開</option><option value="wipe">由左擦入</option>
+        <option value="blinds">百葉窗</option><option value="none">無轉場</option>
+      </select>
+    </label>
+    <label class="wide">轉場秒數：<output id="vTrOut"></output>
       <input id="vTr" type="range" min="0.2" max="2" step="0.1">
     </label>
     <label>動態效果
@@ -216,6 +224,7 @@ header h1 .ver{font-size:12px;font-weight:500;color:var(--muted);vertical-align:
       <select id="vBg"><option value="blur">模糊照片</option><option value="black">黑色</option><option value="white">白色</option></select>
     </label>
   </div>
+  <div class="meta" id="vTransHint"></div>
   <div class="meta" id="vInfo"></div>
   <div class="progress" id="vProg"><i></i></div>
   <div class="acts">
@@ -229,11 +238,11 @@ header h1 .ver{font-size:12px;font-weight:500;color:var(--muted);vertical-align:
 <script>
 'use strict';
 /* =========================================================
- * Photo2PDF — 照片轉 PDF（自動 / 手動框圖 + 透視校正）
+ * Photo2Media — 照片轉 PDF / 照片 / 影片（自動 / 手動框圖 + 透視校正）
  * 全部在瀏覽器端處理。MIT License.
  * ========================================================= */
 
-const APP_VERSION = '1.3.0';   // 改版時更新，並在 README 的「版本紀錄」補一行
+const APP_VERSION = '1.4.0';   // 改版時更新，並在 README 的「版本紀錄」補一行
 
 const OPENCV_URLS = [
   'https://cdn.jsdelivr.net/npm/@techstark/opencv-js@4.10.0-release.1/dist/opencv.js',
@@ -795,7 +804,7 @@ $('edDone').onclick = async () => {
 let out = null;   // { mode:'pdf'|'img', pdf:Blob, imgs:[Blob] }
 function stamp() {
   const d = new Date(), z = (n) => String(n).padStart(2, '0');
-  return `photo2pdf-${d.getFullYear()}${z(d.getMonth() + 1)}${z(d.getDate())}-${z(d.getHours())}${z(d.getMinutes())}`;
+  return `photo2media-${d.getFullYear()}${z(d.getMonth() + 1)}${z(d.getDate())}-${z(d.getHours())}${z(d.getMinutes())}`;
 }
 /** 依目前設定把每一頁算成 JPEG（校正 → 濾鏡 → 旋轉） */
 async function renderAll(btn) {
@@ -899,20 +908,22 @@ $('dlgClose').onclick = () => {
 
 /* ---------------- 做成影片 ---------------- */
 const MP4MUXER_URL = 'https://cdn.jsdelivr.net/npm/mp4-muxer@5.2.1/build/mp4-muxer.js';
-const VIDEO_DEFAULTS = { aspect: '9:16', source: 'page', dur: 3, trans: 'cross', tr: 0.8, motion: 'zoom', filter: 'none', bg: 'blur' };
+const VIDEO_DEFAULTS = { aspect: '9:16', source: 'page', dur: 3, transMode: 'fixed', trans: 'cross', tr: 0.8, motion: 'zoom', filter: 'none', bg: 'blur' };
 const VIDEO_SIZES = { '9:16': [1080, 1920], '16:9': [1920, 1080], '1:1': [1080, 1080] };
 const FPS = 30;
 const EDGE_FADE = 0.5;    // 影片開頭從黑畫面淡入、結尾淡出到黑畫面的秒數
 const ZOOM = 0.06;        // 「緩慢放大」每張放大 6%
 const VBITRATE = 6_000_000;
-const VKEY = 'photo2pdf.video';
+const VKEY = 'photo2media.video';
 let videoBusy = false, videoCancel = false;
 
-const vFields = { aspect: 'vAspect', source: 'vSource', dur: 'vDur', trans: 'vTrans', tr: 'vTr', motion: 'vMotion', filter: 'vFilter', bg: 'vBg' };
+const vFields = { aspect: 'vAspect', source: 'vSource', dur: 'vDur', transMode: 'vTransMode', trans: 'vTrans', tr: 'vTr', motion: 'vMotion', filter: 'vFilter', bg: 'vBg' };
 function loadVideoSettings() {
   let saved = {};
   try { saved = JSON.parse(localStorage.getItem(VKEY) || '{}') || {}; } catch (e) { saved = {}; }
-  return { ...VIDEO_DEFAULTS, ...saved };
+  const v = { ...VIDEO_DEFAULTS, ...saved };
+  if (v.trans === 'random') { v.transMode = 'random'; v.trans = 'cross'; }   // 舊版設定相容
+  return v;
 }
 function saveVideoSettings(v) { try { localStorage.setItem(VKEY, JSON.stringify(v)); } catch (e) { /* 私密瀏覽等情況忽略 */ } }
 function readVideoForm() {
@@ -929,7 +940,10 @@ function updateVideoInfo() {
   const v = readVideoForm();
   $('vDurOut').textContent = v.dur + ' 秒';
   $('vTrOut').textContent = v.tr.toFixed(1) + ' 秒';
-  $('vTr').disabled = v.trans === 'none';
+  const noTrans = v.transMode === 'fixed' && v.trans === 'none';
+  $('vTr').disabled = noTrans;
+  $('vTrans').disabled = v.transMode !== 'fixed';
+  $('vTransHint').textContent = { fixed: '', cycle: '10 種效果照順序輪流', random: '每次換張從 10 種效果隨機挑' }[v.transMode];
   const [W, H] = VIDEO_SIZES[v.aspect];
   $('vInfo').textContent = `共 ${pages.length} 張 · 約 ${Math.round(pages.length * v.dur)} 秒 · ${W}×${H} MP4`;
 }
@@ -1005,10 +1019,69 @@ async function buildSlide(p, v, W, H) {
   videoColorFilter(sl, v.filter);
   return sl;
 }
+/**
+ * 轉場效果：在目前這張的最後 T 秒，從 cur 過渡到 next。
+ * 每個函式拿到 draw(slide, {alpha, dx, dy, scale}) 與進度 a（0→1，已做緩動）。
+ */
+const TRANSITIONS = {
+  cross:  (ctx, W, H, a, cur, next) => { cur({}); next({ alpha: a }); },
+  black:  (ctx, W, H, a, cur, next) => fadeThrough(ctx, W, H, a, cur, next, '0,0,0'),
+  white:  (ctx, W, H, a, cur, next) => fadeThrough(ctx, W, H, a, cur, next, '255,255,255'),
+  pushL:  (ctx, W, H, a, cur, next) => { cur({ dx: -a * W }); next({ dx: (1 - a) * W }); },
+  pushU:  (ctx, W, H, a, cur, next) => { cur({ dy: -a * H }); next({ dy: (1 - a) * H }); },
+  cover:  (ctx, W, H, a, cur, next) => {
+    cur({});
+    ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.5)'; ctx.shadowBlur = 40;
+    ctx.fillStyle = '#000'; ctx.fillRect((1 - a) * W, 0, W, H); ctx.restore();
+    next({ dx: (1 - a) * W });
+  },
+  zoomIn: (ctx, W, H, a, cur, next) => { cur({}); next({ alpha: a, scale: 1 + 0.18 * (1 - a) }); },
+  circle: (ctx, W, H, a, cur, next) => {
+    cur({});
+    ctx.save(); ctx.beginPath(); ctx.arc(W / 2, H / 2, a * Math.hypot(W, H) / 2, 0, Math.PI * 2); ctx.clip();
+    next({}); ctx.restore();
+  },
+  wipe:   (ctx, W, H, a, cur, next) => {
+    cur({});
+    ctx.save(); ctx.beginPath(); ctx.rect(0, 0, a * W, H); ctx.clip(); next({}); ctx.restore();
+  },
+  blinds: (ctx, W, H, a, cur, next) => {
+    cur({});
+    const N = 8, h = H / N;
+    ctx.save(); ctx.beginPath();
+    for (let k = 0; k < N; k++) ctx.rect(0, k * h, W, h * a + 0.5);
+    ctx.clip(); next({}); ctx.restore();
+  },
+};
+const RANDOM_POOL = ['cross', 'black', 'white', 'pushL', 'pushU', 'cover', 'zoomIn', 'circle', 'wipe', 'blinds'];
+function fadeThrough(ctx, W, H, a, cur, next, rgb) {
+  if (a < 0.5) { cur({}); ctx.fillStyle = `rgba(${rgb},${a * 2})`; }
+  else { next({}); ctx.fillStyle = `rgba(${rgb},${(1 - a) * 2})`; }
+  ctx.fillRect(0, 0, W, H);
+}
+/**
+ * 第 i 張 → 第 i+1 張用哪一種轉場
+ *   固定：每次都用使用者選的那一種
+ *   輪流：照 RANDOM_POOL 的順序一種換一種
+ *   隨機：用換張序號算雜湊挑選（同一支影片每格一致），且不連續重複
+ */
+function pickTransition(v, i) {
+  if (v.transMode === 'cycle') return RANDOM_POOL[i % RANDOM_POOL.length];
+  if (v.transMode !== 'random') return v.trans;
+  let prev = null, pick = null;
+  for (let k = 0; k <= i; k++) {
+    let h = Math.imul(k + 1, 0x9E3779B1) ^ 0x5bd1e995;
+    h ^= h >>> 15; h = Math.imul(h, 0x85ebca6b); h ^= h >>> 13;
+    let idx = (h >>> 0) % RANDOM_POOL.length;
+    if (RANDOM_POOL[idx] === prev) idx = (idx + 1) % RANDOM_POOL.length;
+    pick = RANDOM_POOL[idx]; prev = pick;
+  }
+  return pick;
+}
 /** 依時間畫出一格：處理轉場、緩慢放大、頭尾淡入淡出 */
 function makeTimeline(v, n, W, H) {
   const D = v.dur;
-  const T = v.trans === 'none' ? 0 : Math.min(v.tr, D * 0.8);
+  const T = (v.transMode === 'fixed' && v.trans === 'none') ? 0 : Math.min(v.tr, D * 0.8);
   const total = n * D;
   const cache = new Map();
   const get = (i) => {
@@ -1016,11 +1089,11 @@ function makeTimeline(v, n, W, H) {
     return cache.get(i);
   };
   const smooth = (a) => { a = Math.min(1, Math.max(0, a)); return a * a * (3 - 2 * a); };
-  const drawSlide = (ctx, sl, i, t, alpha) => {
+  const drawSlide = (ctx, sl, i, t, o) => {
     const zp = Math.min(1, Math.max(0, (t - i * D + T) / (D + T)));
-    const s = v.motion === 'zoom' ? 1 + ZOOM * zp : 1;
-    ctx.globalAlpha = alpha;
-    ctx.drawImage(sl, (W - W * s) / 2, (H - H * s) / 2, W * s, H * s);
+    const s = (v.motion === 'zoom' ? 1 + ZOOM * zp : 1) * (o.scale || 1);
+    ctx.globalAlpha = o.alpha === undefined ? 1 : o.alpha;
+    ctx.drawImage(sl, (W - W * s) / 2 + (o.dx || 0), (H - H * s) / 2 + (o.dy || 0), W * s, H * s);
     ctx.globalAlpha = 1;
   };
   async function drawAt(ctx, t) {
@@ -1031,15 +1104,12 @@ function makeTimeline(v, n, W, H) {
     if (i + 1 < n) get(i + 1);
     const cur = await get(i);
     ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
-    if (v.trans === 'cross') {
-      drawSlide(ctx, cur, i, t, 1);
-      if (i + 1 < n && local > D - T) drawSlide(ctx, await get(i + 1), i + 1, t, smooth((local - (D - T)) / T));
-    } else if (v.trans === 'black') {
-      let a = 1;
-      if (i > 0 && local < T / 2) a = smooth(local / (T / 2));
-      if (i + 1 < n && local > D - T / 2) a = smooth((D - local) / (T / 2));
-      drawSlide(ctx, cur, i, t, a);
-    } else drawSlide(ctx, cur, i, t, 1);
+    if (T > 0 && i + 1 < n && local > D - T) {
+      const next = await get(i + 1);
+      const fn = TRANSITIONS[pickTransition(v, i)] || TRANSITIONS.cross;
+      fn(ctx, W, H, smooth((local - (D - T)) / T),
+        (o) => drawSlide(ctx, cur, i, t, o), (o) => drawSlide(ctx, next, i + 1, t, o));
+    } else drawSlide(ctx, cur, i, t, {});
     // 頭尾淡入淡出
     const edge = Math.min(1, t / EDGE_FADE, (total - t) / EDGE_FADE);
     if (edge < 1) { ctx.fillStyle = `rgba(0,0,0,${1 - smooth(edge)})`; ctx.fillRect(0, 0, W, H); }
@@ -1184,7 +1254,7 @@ $('clearAll').onclick = () => {
 $('verTop').textContent = 'v' + APP_VERSION;
 $('verFoot').textContent = 'v' + APP_VERSION;
 // 測試用掛勾
-window.Photo2PDF = { pages, buildPdf, detectQuad, orderQuad, cvReady };
+window.Photo2Media = { pages, buildPdf, detectQuad, orderQuad, cvReady };
 refreshUI();
 </script>
 </body>

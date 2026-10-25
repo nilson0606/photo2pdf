@@ -1,10 +1,10 @@
-# Photo2PDF
+# Photo2Media
 
-把 iPhone 拍的文件照片轉成 PDF 的網頁工具。自動偵測文件四角，也能用手指拖曳四個角手動框選，再做透視校正把斜拍的紙拉正。
+把 iPhone 照片轉成 **PDF、照片或影片** 的網頁工具（原名 Photo2PDF）。自動偵測文件四角，也能用手指拖曳四個角手動框選，再做透視校正把斜拍的紙拉正。
 
 **所有處理都在你的手機或電腦瀏覽器裡完成，照片不會上傳到任何伺服器。**
 
-*A browser-based tool that turns iPhone photos into a PDF. Auto-detects document corners or lets you drag them manually, applies perspective correction, and runs entirely on-device.*
+*A browser-based tool that turns iPhone photos into a PDF, cleaned-up images, or a slideshow video. Auto-detects document corners or lets you drag them manually, applies perspective correction, and runs entirely on-device.*
 
 ## 功能
 
@@ -17,11 +17,11 @@
 - 頁面大小：符合照片 / A4 / Letter；畫質：標準 / 高
 - 輸出成 **PDF**、**照片（JPG）** 或 **影片（MP4）**：iPhone 上可直接存進「照片」App，或分享到檔案、LINE、Mail 等
 - 支援 HEIC（瀏覽器不支援時自動轉檔）
-- **做成影片**：直式／橫式／方形，可調每張秒數、交叉或黑場淡入淡出、緩慢放大、6 種影片濾鏡、模糊照片背景
+- **做成影片**：直式／橫式／方形，可調每張秒數；10 種轉場（交叉/黑場/白場淡入淡出、推移、滑入、放大、圓形、擦入、百葉窗），轉場方式可選固定／輪流／隨機；緩慢放大、6 種影片濾鏡、模糊照片背景
 
 ## 線上使用
 
-👉 **https://nilson0606.github.io/photo2pdf/**
+👉 **https://nilson0606.github.io/photo2media/**
 
 ## 使用方式
 
@@ -73,6 +73,7 @@ python -m http.server 8000
 
 | 版本 | 內容 |
 |---|---|
+| v1.4.0 | 改名為 Photo2Media；轉場增加到 10 種，並可選「固定／輪流／隨機」 |
 | v1.3.0 | 新增「做成影片」（MP4）：直式/橫式/方形、每張秒數、淡入淡出轉場、緩慢放大、影片濾鏡、模糊背景 |
 | v1.2.0 | 新增「存成照片」（JPG，可存進 iPhone 照片 App）；顯示版號 |
 | v1.1.0 | 自動框圖改用多候選＋評分（隨機測試準確率 48% → 85%）；卡片新增 ✎ 調整按鈕 |
